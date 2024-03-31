@@ -1,4 +1,5 @@
 import { sql } from '@vercel/postgres';
+const { Client } = require('pg');
 import {
   CustomerField,
   CustomersTableType,
@@ -10,22 +11,21 @@ import {
 } from './definitions';
 import { formatCurrency } from './utils';
 
+const client = new Client({
+  user: 'postgres',
+  host: 'localhost',
+  database: 'postgres',
+  password: 'postgres',
+  port: 5432, // Default PostgreSQL port
+});
+
+client.connect();
+
 export async function fetchRevenue() {
-  // Add noStore() here to prevent the response from being cached.
-  // This is equivalent to in fetch(..., {cache: 'no-store'}).
 
   try {
-    // Artificially delay a response for demo purposes.
-    // Don't do this in production :)
-
-    // console.log('Fetching revenue data...');
-    // await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const data = await sql<Revenue>`SELECT * FROM revenue`;
-
-    // console.log('Data fetch completed after 3 seconds.');
-
-    return data.rows;
+    const result = await client.query('SELECT * FROM revenue');
+    return result.rows;
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch revenue data.');
@@ -33,18 +33,20 @@ export async function fetchRevenue() {
 }
 
 export async function fetchLatestInvoices() {
+
   try {
-    const data = await sql<LatestInvoiceRaw>`
+    const data = await client.query(`
       SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
       FROM invoices
       JOIN customers ON invoices.customer_id = customers.id
       ORDER BY invoices.date DESC
-      LIMIT 5`;
+      LIMIT 5`);
 
-    const latestInvoices = data.rows.map((invoice) => ({
+    const latestInvoices = data.rows.map((invoice: { amount: number; }) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
     }));
+
     return latestInvoices;
   } catch (error) {
     console.error('Database Error:', error);
